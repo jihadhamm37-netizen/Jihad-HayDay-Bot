@@ -43,6 +43,56 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+      - name: Patch upstream Kotlin compile errors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main = Path("source/app/src/main/java/com/haydaybot/ui/MainActivity.kt")
+          s = main.read_text()
+          replacements = {
+              "b.toggleCrops.findViewById(R.id.switchTask)": "b.toggleCrops.switchTask",
+              "b.toggleAnimals.findViewById(R.id.switchTask)": "b.toggleAnimals.switchTask",
+              "b.toggleFactory.findViewById(R.id.switchTask)": "b.toggleFactory.switchTask",
+              "b.toggleOrders.findViewById(R.id.switchTask)": "b.toggleOrders.switchTask",
+              'b.toggleCrops.findViewById<android.widget.TextView>(R.id.tvTaskName)': "b.toggleCrops.tvTaskName",
+              'b.toggleAnimals.findViewById<android.widget.TextView>(R.id.tvTaskName)': "b.toggleAnimals.tvTaskName",
+              'b.toggleFactory.findViewById<android.widget.TextView>(R.id.tvTaskName)': "b.toggleFactory.tvTaskName",
+              'b.toggleOrders.findViewById<android.widget.TextView>(R.id.tvTaskName)': "b.toggleOrders.tvTaskName",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f"Expected source expression not found: {old}")
+              s = s.replace(old, new)
+          main.write_text(s)
+
+          orders = Path("source/app/src/main/java/com/haydaybot/tasks/OrdersTask.kt")
+          s = orders.read_text()
+          old1 = '''            val addBtn = vision.find(addScreen, "orders", "shop_add_btn")
+                ?: run { input.swipe(640, 1200, 640, 400, durationMs = 200); continue }
+            tapMatch(addBtn); delay(400)
+            val pickScreen = screen() ?: continue
+            val item = vision.find(pickScreen, "orders", "shop_item_select")
+                ?: run { input.swipe(640, 1200, 640, 400, durationMs = 200); continue }
+            tapMatch(item); delay(400)'''
+          new1 = '''            val addBtn = vision.find(addScreen, "orders", "shop_add_btn")
+            if (addBtn == null) {
+                input.swipe(640, 1200, 640, 400, durationMs = 200)
+                continue
+            }
+            tapMatch(addBtn); delay(400)
+            val pickScreen = screen() ?: continue
+            val item = vision.find(pickScreen, "orders", "shop_item_select")
+            if (item == null) {
+                input.swipe(640, 1200, 640, 400, durationMs = 200)
+                continue
+            }
+            tapMatch(item); delay(400)'''
+          if old1 not in s:
+              raise SystemExit("Expected OrdersTask inline-continue block not found")
+          orders.write_text(s.replace(old1, new1))
+          PY
+
       - name: Generate Gradle wrapper
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip
