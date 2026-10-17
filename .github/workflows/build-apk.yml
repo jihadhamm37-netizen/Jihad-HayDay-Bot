@@ -43,6 +43,21 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+      - name: Patch Android 14+ MediaProjection foreground permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("source/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          permission = '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />'
+          if "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" not in s:
+              anchor = '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />'
+              if anchor not in s:
+                  raise SystemExit("Could not find FOREGROUND_SERVICE permission anchor in manifest")
+              s = s.replace(anchor, anchor + "\\n" + permission, 1)
+              p.write_text(s)
+          print("MediaProjection foreground service permission verified")
+
       - name: Patch upstream Kotlin compile errors
         run: |
           python3 - <<'PY'
