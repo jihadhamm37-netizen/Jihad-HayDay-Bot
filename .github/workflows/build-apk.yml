@@ -47,6 +47,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           main = Path("source/app/src/main/java/com/haydaybot/ui/MainActivity.kt")
           s = main.read_text()
@@ -68,29 +69,21 @@ jobs:
 
           orders = Path("source/app/src/main/java/com/haydaybot/tasks/OrdersTask.kt")
           s = orders.read_text()
-          old1 = '''            val addBtn = vision.find(addScreen, "orders", "shop_add_btn")
-                ?: run { input.swipe(640, 1200, 640, 400, durationMs = 200); continue }
-            tapMatch(addBtn); delay(400)
-            val pickScreen = screen() ?: continue
-            val item = vision.find(pickScreen, "orders", "shop_item_select")
-                ?: run { input.swipe(640, 1200, 640, 400, durationMs = 200); continue }
-            tapMatch(item); delay(400)'''
-          new1 = '''            val addBtn = vision.find(addScreen, "orders", "shop_add_btn")
-            if (addBtn == null) {
-                input.swipe(640, 1200, 640, 400, durationMs = 200)
-                continue
-            }
-            tapMatch(addBtn); delay(400)
-            val pickScreen = screen() ?: continue
-            val item = vision.find(pickScreen, "orders", "shop_item_select")
-            if (item == null) {
-                input.swipe(640, 1200, 640, 400, durationMs = 200)
-                continue
-            }
-            tapMatch(item); delay(400)'''
-          if old1 not in s:
-              raise SystemExit("Expected OrdersTask inline-continue block not found")
-          orders.write_text(s.replace(old1, new1))
+          patterns = [
+              (
+                  r'val addBtn = (vision\.find\(addScreen, "orders", "shop_add_btn"\))\s*\?: run \{ input\.swipe\(640, 1200, 640, 400, durationMs = 200\); continue \}',
+                  'val addBtn = \\1\n            if (addBtn == null) {\n                input.swipe(640, 1200, 640, 400, durationMs = 200)\n                continue\n            }'
+              ),
+              (
+                  r'val item = (vision\.find\(pickScreen, "orders", "shop_item_select"\))\s*\?: run \{ input\.swipe\(640, 1200, 640, 400, durationMs = 200\); continue \}',
+                  'val item = \\1\n            if (item == null) {\n                input.swipe(640, 1200, 640, 400, durationMs = 200)\n                continue\n            }'
+              ),
+          ]
+          for pattern, replacement in patterns:
+              s, n = re.subn(pattern, replacement, s)
+              if n != 1:
+                  raise SystemExit(f"Expected exactly one OrdersTask pattern replacement, got {n}")
+          orders.write_text(s)
           PY
 
       - name: Generate Gradle wrapper
