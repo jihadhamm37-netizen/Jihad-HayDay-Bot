@@ -56,7 +56,19 @@ jobs:
                   raise SystemExit("Could not find FOREGROUND_SERVICE permission anchor in manifest")
               s = s.replace(anchor, anchor + "\\n" + permission, 1)
               p.write_text(s)
-          print("MediaProjection foreground service permission verified")
+          # Android 14+ requires a declared subtype for specialUse foreground services.
+          p = Path("source/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          prop = '''        <property
+                  android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                  android:value="Keeps the user-started Hay Day automation service running." />'''
+          if "android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" not in s:
+              app_anchor = '    <application\\n'
+              if app_anchor not in s:
+                  raise SystemExit("Could not find application tag in manifest")
+              s = s.replace(app_anchor, app_anchor + prop + "\\n", 1)
+              p.write_text(s)
+          print("Android 14+ foreground service declarations verified")
 
       - name: Patch upstream Kotlin compile errors
         run: |
