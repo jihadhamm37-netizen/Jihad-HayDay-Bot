@@ -63,10 +63,10 @@ jobs:
                   android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                   android:value="Keeps the user-started Hay Day automation service running." />'''
           if "android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" not in s:
-              app_anchor = '    <application\\n'
+              app_anchor = '    </application>'
               if app_anchor not in s:
-                  raise SystemExit("Could not find application tag in manifest")
-              s = s.replace(app_anchor, app_anchor + prop + "\\n", 1)
+                  raise SystemExit("Could not find application closing tag in manifest")
+              s = s.replace(app_anchor, prop + "\\n" + app_anchor, 1)
               p.write_text(s)
           print("Android 14+ foreground service declarations verified")
 
