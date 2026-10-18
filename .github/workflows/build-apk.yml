@@ -43,32 +43,29 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Patch Android 14+ MediaProjection foreground permission
+      - name: Patch Android 14+ foreground service declarations
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path("source/app/src/main/AndroidManifest.xml")
           s = p.read_text()
-          permission = '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />'
-          if "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" not in s:
+          media_permission = '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />'
+          if media_permission not in s:
               anchor = '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />'
               if anchor not in s:
-                  raise SystemExit("Could not find FOREGROUND_SERVICE permission anchor in manifest")
-              s = s.replace(anchor, anchor + "\\n" + permission, 1)
-              p.write_text(s)
-          # Android 14+ requires a declared subtype for specialUse foreground services.
-          p = Path("source/app/src/main/AndroidManifest.xml")
-          s = p.read_text()
-          prop = '''        <property
+                  raise SystemExit("Missing FOREGROUND_SERVICE permission")
+              s = s.replace(anchor, anchor + "\n" + media_permission, 1)
+          subtype = '''        <property
                   android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                   android:value="Keeps the user-started Hay Day automation service running." />'''
           if "android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" not in s:
-              app_anchor = '    </application>'
-              if app_anchor not in s:
-                  raise SystemExit("Could not find application closing tag in manifest")
-              s = s.replace(app_anchor, prop + "\\n" + app_anchor, 1)
-              p.write_text(s)
-          print("Android 14+ foreground service declarations verified")
+              closing = "    </application>"
+              if closing not in s:
+                  raise SystemExit("Missing application closing tag")
+              s = s.replace(closing, subtype + "\n" + closing, 1)
+          p.write_text(s)
+          print("Android foreground service declarations patched")
+          PY
 
       - name: Patch upstream Kotlin compile errors
         run: |
